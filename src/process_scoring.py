@@ -1,30 +1,46 @@
 import sqlite3
+from db import get_conn
+import json
+import os
 
-def calculate_score(row):
+# 설정 파일 경로
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'scoring_config.json')
+
+def load_scoring_config():
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {
+        "funding_weights": {"Series A": 30, "Seed": 10},
+        "job_keywords": {"세일즈": 25, "영업": 25, "마케터": 20, "마케팅": 20},
+        "recency_days": 30,
+        "recency_score": 10
+    }
+
+def calculate_score(row, config):
     # row: (id, company_name, funding_stage, funding_date, job_roles)
     score = 0
     
-    # 1. 투자 점수 (Rule)
-    if "Series A" in row[2]:
-        score += 30
-    elif "Seed" in row[2]:
-        score += 10
+    # 투자 점수
+    funding_stage = row[2] or ""
+    score += config["funding_weights"].get(funding_stage, 0)
         
-    # 2. 채용 점수 (Rule)
-    jobs = row[4]
-    if "세일즈" in jobs or "영업" in jobs:
-        score += 25
-    if "마케터" in jobs or "마케팅" in jobs:
-        score += 20
+    # 채용 점수
+    jobs = row[4] or ""
+    for keyword, points in config["job_keywords"].items():
+        if keyword in jobs:
+            score += points
         
-    # 3. 최신성 점수 (간단 로직)
-    if "2024-11" in row[3] or "2024-12" in row[3]:
-        score += 10
+    # 최신성 점수
+    if row[3] and f"2025-{config['recency_days']//30:02d}" in row[3]:
+        score += config["recency_score"]
         
     return score
 
-conn = sqlite3.connect('../data/meta_sales_trigger.db')
+conn = get_conn()
 cursor = conn.cursor()
+
+config = load_scoring_config()
 
 # Raw 데이터 가져오기
 cursor.execute("SELECT id, company_name, funding_stage, funding_date, job_roles FROM raw_company_data")
@@ -37,7 +53,7 @@ for row in rows:
     company_name = row[1]
     
     # 점수 계산 함수 호출
-    total_score = calculate_score(row)
+    total_score = calculate_score(row, config)
     
     # Signal 테이블에 저장 (이미 있으면 업데이트 로직 필요하나 여기선 생략)
     # 간단하게 삭제 후 재입력 방식 사용

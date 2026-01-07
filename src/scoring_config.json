@@ -1,0 +1,16 @@
+{
+    "funding_weights": {
+        "Series A": 30,
+        "Seed": 10,
+        "Series B": 50
+    },
+    "job_keywords": {
+        "세일즈": 25,
+        "영업": 25,
+        "마케터": 20,
+        "마케팅": 20,
+        "개발자": 15
+    },
+    "recency_days": 30,
+    "recency_score": 10
+}
